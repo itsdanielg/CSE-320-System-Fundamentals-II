@@ -10,6 +10,8 @@
 #include "stats.h"
 #include "allocate.h"
 #include "normal.h"
+#include "error.h"
+#include<string.h>
 
 /*
  * Normalize scores:
@@ -20,9 +22,9 @@
  *              options set for that score and for the assignment.
  */
 
-void normalize(c, s)
+void normalize(c)
 Course *c;
-Stats *s;
+//Stats *s;
 {
         Student *stp;
         Score *rscp, *nscp;
@@ -149,6 +151,7 @@ Sectionstats *ssp;
                         return((float)fp->numless*100.0/n);
                 }
         }
+        return 0;
 }
 
 /*

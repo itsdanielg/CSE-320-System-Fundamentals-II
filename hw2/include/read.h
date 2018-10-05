@@ -23,13 +23,16 @@ int iswhitespace(char c);       /* Correct for buggy ANSI implementation */
 #else
 int iswhitespace(int c);
 #endif
+int istoken();
 void gobblewhitespace();
 void gobbleblanklines();
 void advancetoken();
 void advanceeol();
+int tokensize();
 void flushtoken();
 void expecttoken(char *key);
 void expecteof();
 void expectnewline();
+int checktoken(char *key);
 void pushfile();
 void previousfile();

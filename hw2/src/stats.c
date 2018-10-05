@@ -10,6 +10,7 @@
 #include "gradedb.h"
 #include "stats.h"
 #include "allocate.h"
+#include "error.h"
 
 Stats *statistics(c)
 Course *c;
@@ -161,7 +162,8 @@ Freqs *count_score(scp, afp)
 Score *scp;
 Freqs *afp;
 {
-        Freqs *fp, *sfp;
+        Freqs *fp;
+        Freqs *sfp = NULL;
 
         for(fp = afp; fp != NULL; sfp = fp, fp = fp->next) {
                 if(fp->score == scp->grade) {
@@ -184,7 +186,8 @@ Freqs *afp;
                         }
                 } else continue;
         }
-        if(sfp == NULL) {       /* insertion into empty list */
+        if(afp == NULL) {       /* insertion into empty list */
+                sfp = newfreqs();
                 sfp->next = NULL;
                 sfp->score = scp->grade;
                 sfp->count = 1;

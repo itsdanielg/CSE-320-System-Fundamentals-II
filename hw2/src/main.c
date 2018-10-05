@@ -11,6 +11,12 @@
 #include "write.h"
 #include "normal.h"
 #include "sort.h"
+#include "error.h"
+#include "report.h"
+#include<unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <errno.h>
 
 /*
  * Course grade computation program
@@ -29,6 +35,7 @@
 #define ALLOUTPUT      10
 #define SORTBY         11
 #define NONAMES        12
+#define OUTPUT         13
 
 static struct option_info {
         unsigned int val;
@@ -63,15 +70,18 @@ static struct option_info {
  {NONAMES,        "nonames",   'n',      no_argument, NULL,
                   "Suppress printing of students' names."},
  {SORTBY,         "sortby",    'k',      required_argument, "key",
-                  "Sort by {name, id, score}."}
+                  "Sort by {name, id, score}."},
+ {OUTPUT,         "output",    'o',      required_argument, "outfile",
+                  "Write output to file, rather than standard output."}
 };
 
 #define NUM_OPTIONS (14)
 
-static char *short_options = "";
+static char short_options[9];
 static struct option long_options[NUM_OPTIONS];
 
 static void init_options() {
+    int index = 0;
     for(unsigned int i = 0; i < NUM_OPTIONS; i++) {
         struct option_info *oip = &option_table[i];
         struct option *op = &long_options[i];
@@ -79,11 +89,20 @@ static void init_options() {
         op->has_arg = oip->has_arg;
         op->flag = NULL;
         op->val = oip->val;
+        if (oip->chr != 0) {
+            short_options[index] = oip->chr;
+            if (short_options[index] == 'k' || short_options[index] == 'o') {
+                index++;
+                short_options[index] = ':';
+            }
+            index++;
+
+        }
     }
 }
 
 static int report, collate, freqs, quantiles, summaries, moments,
-           scores, composite, histograms, tabsep, nonames;
+           scores, composite, histograms, tabsep, nonames, output;
 
 static void usage();
 
@@ -96,12 +115,20 @@ char *argv[];
         extern int errors, warnings;
         char optval;
         int (*compare)() = comparename;
+        int outputFileDescriptor = 0;
+        char *outputFileName = "";
 
         fprintf(stderr, BANNER);
         init_options();
         if(argc <= 1) usage(argv[0]);
         while(optind < argc) {
-            if((optval = getopt_long(argc, argv, short_options, long_options, NULL)) != -1) {
+            if(((optval = getopt_long(argc, argv, short_options, long_options, NULL)) != -1)) {
+                if (optval == 'r') optval = REPORT;
+                else if (optval == 'c') optval = COLLATE;
+                else if (optval == 'a') optval = ALLOUTPUT;
+                else if (optval == 'k') optval = SORTBY;
+                else if (optval == 'n') optval = NONAMES;
+                else if (optval == 'o') optval = OUTPUT;
                 switch(optval) {
                 case REPORT: report++; break;
                 case COLLATE: collate++; break;
@@ -132,6 +159,10 @@ char *argv[];
                     freqs++; quantiles++; summaries++; moments++;
                     composite++; scores++; histograms++; tabsep++;
                     break;
+                case OUTPUT:
+                    output++;
+                    outputFileName = optarg;
+                    break;
                 case '?':
                     usage(argv[0]);
                     break;
@@ -152,7 +183,16 @@ char *argv[];
                         option_table[REPORT].name, option_table[COLLATE].name);
                 usage(argv[0]);
         }
-
+        if (output) {
+            outputFileDescriptor = open(outputFileName, O_RDWR | O_CREAT | O_TRUNC, 0644);
+            if (outputFileDescriptor == -1) {
+                fprintf(stderr, "Cannot open output file specified with error [%s]\n\n", strerror(errno));
+                usage(argv[0]);
+                exit(EXIT_FAILURE);
+            }
+            dup2(outputFileDescriptor, STDOUT_FILENO);
+            close(outputFileDescriptor);
+        }
         fprintf(stderr, "Reading input data...\n");
         c = readfile(ifile);
         if(errors) {
@@ -164,7 +204,7 @@ char *argv[];
         fprintf(stderr, "Calculating statistics...\n");
         s = statistics(c);
         if(s == NULL) fatal("There is no data from which to generate reports.");
-        normalize(c, s);
+        normalize(c);
         composites(c);
         sortrosters(c, comparename);
         checkfordups(c->roster);
@@ -184,7 +224,7 @@ char *argv[];
         if(summaries) reportquantilesummaries(stdout, s);
         if(histograms) reporthistos(stdout, c, s);
         if(scores) reportscores(stdout, c, nonames);
-        if(tabsep) reporttabs(stdout, c, nonames);
+        if(tabsep) reporttabs(stdout, c);
 
         fprintf(stderr, "\nProcessing complete.\n");
         printf("%d warning%s issued.\n", warnings+errors,
