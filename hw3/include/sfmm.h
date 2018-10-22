@@ -98,10 +98,10 @@ typedef struct {
  * The heap is designed to keep the payload area of each block aligned to a double-word (16-byte)
  * boundary.  The information word of block header precedes the payload area, and is only
  * single-word aligned.  The heap starts with a "prologue" that consists of padding (to achieve
- * the desired alignment) and an allocated block with just a header and a footer and no payload area.
- * The heap ends with an "epilogue" that consists only of an allocated footer.  The prologue and
- * epilogue are never freed, and they serve as sentinels that eliminate edge cases in coalescing
- * that would otherwise have to be treated.
+ * the desired alignment) and an allocated block with just a header and a footer and a minimum-size
+ * payload area (which is unused).  The heap ends with an "epilogue" that consists only of an
+ * allocated footer.  The prologue and epilogue are never freed, and they serve as sentinels that
+ * eliminate edge cases in coalescing that would otherwise have to be treated.
  */
 
 /*
@@ -119,6 +119,14 @@ typedef struct {
     |                                            |                  |       |       |         |
     |                    0                       |        0         |  00   |   0   |    1    | prologue 
     |                 32 bits                    |     28 bits      |       |       |         | header
+    +--------------------------------------------+------------------+-------+-------+---------+ <- (aligned)
+    |                                                                                         |
+    |                                            0                                            | padding
+    |                                         64 bits                                         |
+    +--------------------------------------------+------------------+-------+-------+---------+
+    |                                                                                         |
+    |                                            0                                            | padding
+    |                                         64 bits                                         |
     +--------------------------------------------+------------------+-------+-------+---------+ <- (aligned)
     |                                            |                  |       |       |         |
     |                    0                       |        0         |  00   |   0   |    1    | prologue
@@ -283,7 +291,7 @@ sf_free_list_node *sf_add_free_list(size_t size, sf_free_list_node *next);
  */
 void sf_show_block_info(sf_block_info *ip);
 void sf_show_blocks();
-void sf_show_free_list();
+void sf_show_free_lists();
 void sf_show_heap();
 
 #endif
