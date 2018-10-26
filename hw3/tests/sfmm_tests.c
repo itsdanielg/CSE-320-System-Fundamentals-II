@@ -200,3 +200,91 @@ Test(sf_memsuite_student, realloc_smaller_block_free_block, .init = sf_mem_init,
 //DO NOT DELETE THESE COMMENTS
 //############################################
 
+// FIRST CUSTOM TEST; Allocating a long double
+Test(sf_memsuite_student, malloc_a_Long_double_check_freelist, .init = sf_mem_init, .fini = sf_mem_fini) {
+	sf_errno = 0;
+	long double *x = sf_malloc(sizeof(long double));
+
+	cr_assert_not_null(x, "x is NULL!");
+
+	*x = 16;
+
+	cr_assert(*x == 16, "sf_malloc failed to give proper space for a long double!");
+
+	assert_free_block_count(1);
+	assert_free_list_count(PAGE_SZ - sizeof(sf_prologue) - sizeof(sf_epilogue) - MIN_BLOCK_SIZE, 1);
+
+	cr_assert(sf_errno == 0, "sf_errno is not zero!");
+	cr_assert(sf_mem_start() + PAGE_SZ == sf_mem_end(), "Allocated more than necessary!");
+}
+
+// SECOND CUSTOM TEST; Allocating unaligned bytes
+Test(sf_memsuite_student, malloc_unaligned_bytes, .init = sf_mem_init, .fini = sf_mem_fini) {
+	sf_errno = 0;
+	size_t *x = sf_malloc(41);
+
+	cr_assert_not_null(x, "x is NULL!");
+
+	*x = 64;
+
+	cr_assert(*x == 64, "sf_malloc failed to give proper space for a long double!");
+
+	assert_free_block_count(1);
+	assert_free_list_count(3984, 1);
+
+	cr_assert(sf_errno == 0, "sf_errno is not zero!");
+	cr_assert(sf_mem_start() + PAGE_SZ == sf_mem_end(), "Allocated more than necessary!");
+}
+
+
+// THIRD CUSTOM TEST; Free block and coalesce with left adjacent block
+Test(sf_memsuite_student, free_coalesce_left_adjacent, .init = sf_mem_init, .fini = sf_mem_fini) {
+	sf_errno = 0;
+	/* void *w = */ sf_malloc(sizeof(long));
+	void *x = sf_malloc(sizeof(double) * 11);
+	void *y = sf_malloc(sizeof(char));
+	/* void *z = */ sf_malloc(sizeof(int));
+
+	sf_free(x);
+	sf_free(y);
+
+	assert_free_block_count(2);
+	assert_free_list_count(128, 1);
+	assert_free_list_count(3856, 1);
+	cr_assert(sf_errno == 0, "sf_errno is not zero!");
+}
+
+// FOURTH CUSTOM TEST; Free block and coalesce with both adjacent blocks
+Test(sf_memsuite_student, free_coalesce_both_adjacent, .init = sf_mem_init, .fini = sf_mem_fini) {
+	sf_errno = 0;
+	/* void *w = */ sf_malloc(sizeof(long));
+	void *x = sf_malloc(sizeof(double) * 11);
+	void *y = sf_malloc(sizeof(char));
+	void *n = sf_malloc(sizeof(int) * 12);
+	/* void *z = */ sf_malloc(sizeof(int));
+
+	sf_free(x);
+	sf_free(n);
+	sf_free(y);
+
+	assert_free_block_count(2);
+	assert_free_list_count(192, 1);
+	assert_free_list_count(3792, 1);
+	cr_assert(sf_errno == 0, "sf_errno is not zero!");
+}
+
+// FIFTH CUSTOM TEST; Reallocating to memory larger than page
+Test(sf_memsuite_student, realloc_larger_block_new_page, .init = sf_mem_init, .fini = sf_mem_fini) {
+	void *x = sf_malloc(sizeof(int));
+	/* void *y = */ sf_malloc(10);
+	x = sf_realloc(x, sizeof(int) * 2000);
+
+	cr_assert_not_null(x, "x is NULL!");
+	sf_header *hp = (sf_header *)((char *)x - sizeof(sf_footer));
+	cr_assert(hp->info.allocated == 1, "Allocated bit is not set!");
+	cr_assert(hp->info.block_size << 4 == 8016, "Realloc'ed block size not what was expected!");
+
+	assert_free_block_count(2);
+	assert_free_list_count(32, 1);
+	assert_free_list_count(64, 1);
+}
