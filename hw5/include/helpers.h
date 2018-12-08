@@ -1,0 +1,1 @@
+void SIGHUPHandler(int signal);
